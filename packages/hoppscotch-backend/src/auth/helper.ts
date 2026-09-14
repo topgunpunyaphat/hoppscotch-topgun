@@ -233,3 +233,34 @@ export const extractAccessTokenFromAuthRecords = (
 
   return access_token;
 };
+
+/**
+ * Parse a comma-separated email-domain allowlist into normalized entries.
+ * An unset or blank value yields an empty list, which callers treat as
+ * "no restriction" so existing deployments keep working untouched.
+ */
+export const parseAllowedEmailDomains = (raw?: string | null): string[] =>
+  (raw ?? '')
+    .split(',')
+    .map((domain) => domain.trim().toLowerCase().replace(/^@/, ''))
+    .filter((domain) => domain.length > 0);
+
+/**
+ * Whether an email is admissible under an allowlist. Matching is on the
+ * full domain only — `topgun.com` must not admit `nottopgun.com` or
+ * `topgun.com.evil.io`, so subdomains require their own entry.
+ */
+export const isEmailDomainAllowed = (
+  email: string,
+  allowedDomains: readonly string[],
+): boolean => {
+  if (allowedDomains.length === 0) return true;
+
+  // An address may legitimately contain '@' in a quoted local part, so the
+  // domain is everything after the LAST '@'.
+  const atIndex = email.lastIndexOf('@');
+  if (atIndex === -1 || atIndex === email.length - 1) return false;
+
+  const domain = email.slice(atIndex + 1).toLowerCase();
+  return allowedDomains.includes(domain);
+};

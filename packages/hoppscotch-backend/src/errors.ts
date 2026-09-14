@@ -45,6 +45,13 @@ export const AUTH_EMAIL_NOT_PROVIDED_BY_OAUTH =
   'auth/email_not_provided_by_oauth';
 
 /**
+ * Email domain is outside the configured allowlist
+ * (SSO Strategies)
+ */
+export const AUTH_EMAIL_DOMAIN_NOT_ALLOWED =
+  'auth/email_domain_not_allowed' as const;
+
+/**
  * Environment variable "DATA_ENCRYPTION_KEY" is not present in .env file
  */
 export const ENV_NOT_FOUND_KEY_DATA_ENCRYPTION_KEY =

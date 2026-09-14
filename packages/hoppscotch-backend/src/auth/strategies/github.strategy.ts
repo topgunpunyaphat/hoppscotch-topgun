@@ -38,7 +38,7 @@ export class GithubStrategy extends PassportStrategy(Strategy) {
     profile: Profile,
     done,
   ) {
-    const email = profile.emails?.[0].value;
+    const email = profile.emails?.[0]?.value;
 
     if (!validateEmail(email))
       throw new UnauthorizedException(AUTH_EMAIL_NOT_PROVIDED_BY_OAUTH);

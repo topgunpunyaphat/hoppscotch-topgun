@@ -298,6 +298,11 @@ export async function getDefaultInfraConfigs(): Promise<DefaultInfraConfig[]> {
       isEncrypted: false,
     },
     {
+      name: InfraConfigEnum.GOOGLE_ALLOWED_DOMAINS,
+      value: process.env.GOOGLE_ALLOWED_DOMAINS || null,
+      isEncrypted: false,
+    },
+    {
       name: InfraConfigEnum.GITHUB_CLIENT_ID,
       value: null,
       isEncrypted: true,

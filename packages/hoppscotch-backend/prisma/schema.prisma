@@ -34,6 +34,13 @@ enum MockServerAction {
   DEACTIVATED
 }
 
+enum TeamSecretAuditAction {
+  READ
+  CREATE
+  UPDATE
+  DELETE
+}
+
 // ============================================================
 // TEAM
 // ============================================================
@@ -115,6 +122,24 @@ model TeamEnvironment {
   variables Json
 
   team Team @relation(fields: [teamID], references: [id], onDelete: Cascade)
+}
+
+// Append-only trail of who touched team vault secrets. `actorUid` is a bare
+// string with no relation on purpose: the trail must outlive the user row it
+// names, so deleting a user can never cascade an audit record away.
+model TeamSecretAuditLog {
+  id            String                @id @default(cuid())
+  teamID        String
+  environmentID String
+  environmentName String
+  actorUid      String?
+  actorEmail    String?
+  action        TeamSecretAuditAction
+  secretKeys    String[]
+  createdOn     DateTime              @default(now()) @db.Timestamptz(3)
+
+  @@index([teamID, createdOn])
+  @@index([environmentID, createdOn])
 }
 
 // ============================================================

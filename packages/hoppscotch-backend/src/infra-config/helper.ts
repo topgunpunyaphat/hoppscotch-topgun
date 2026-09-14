@@ -303,6 +303,18 @@ export async function getDefaultInfraConfigs(): Promise<DefaultInfraConfig[]> {
       isEncrypted: false,
     },
     {
+      name: InfraConfigEnum.TEAM_SECRET_VAULT_ENABLED,
+      value: process.env.TEAM_SECRET_VAULT_ENABLED || 'false',
+      isEncrypted: false,
+    },
+    {
+      // Writes are always audited; reads are opt-in because every workspace
+      // load fetches every environment, so read rows accumulate fast.
+      name: InfraConfigEnum.TEAM_SECRET_VAULT_AUDIT_READS,
+      value: process.env.TEAM_SECRET_VAULT_AUDIT_READS || 'false',
+      isEncrypted: false,
+    },
+    {
       name: InfraConfigEnum.GITHUB_CLIENT_ID,
       value: null,
       isEncrypted: true,

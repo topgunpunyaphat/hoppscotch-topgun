@@ -254,7 +254,11 @@ import {
   updateTeamEnvironment,
 } from "~/helpers/backend/mutations/TeamEnvironment"
 import { GQLError } from "~/helpers/backend/GQLClient"
-import { stripClientLocalValuesForWire } from "~/helpers/clientLocalVariables"
+import {
+  stripClientLocalValuesForVaultWire,
+  stripClientLocalValuesForWire,
+} from "~/helpers/clientLocalVariables"
+import { TeamSecretVaultService } from "~/services/team-secret-vault.service"
 import { TeamEnvironment } from "~/helpers/teams/TeamEnvironment"
 import { useColorMode } from "~/composables/theming"
 import { platform } from "~/platform"
@@ -352,6 +356,7 @@ const vars = ref<EnvironmentVariable[]>([
 ])
 
 const secretEnvironmentService = useService(SecretEnvironmentService)
+const teamSecretVaultService = useService(TeamSecretVaultService)
 const currentEnvironmentValueService = useService(CurrentValueService)
 
 const globalEnv = useReadonlyStream(globalEnv$, {
@@ -555,7 +560,14 @@ const saveEnvironment = async () => {
     )
   )
 
-  const variables = stripClientLocalValuesForWire(filteredVariables)
+  // With the vault on, a secret's value is shared with the team and the
+  // backend encrypts it at rest; with it off, nothing secret leaves this
+  // machine. The server enforces the same rule either way.
+  const vaultEnabled = await teamSecretVaultService.ensureLoaded()
+
+  const variables = vaultEnabled
+    ? stripClientLocalValuesForVaultWire(filteredVariables)
+    : stripClientLocalValuesForWire(filteredVariables)
 
   const environmentUpdated: Environment = {
     v: 2,

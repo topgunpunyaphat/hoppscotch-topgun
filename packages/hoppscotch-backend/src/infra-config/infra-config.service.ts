@@ -519,6 +519,17 @@ export class InfraConfigService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Check if the team secret vault is enabled or not
+   * @returns boolean
+   */
+  isTeamSecretVaultEnabled() {
+    return (
+      this.configService.get<string>('INFRA.TEAM_SECRET_VAULT_ENABLED') ===
+      'true'
+    );
+  }
+
+  /**
    * Check if user history is enabled or not
    * @returns InfraConfig model
    */

@@ -1,0 +1,91 @@
+# Production-oriented compose for a self-hosted internal deployment.
+#
+# Differences from docker-compose.yml, which is tuned for trying the app out:
+#   1. Postgres data lives on a named volume, so `docker compose down` is not
+#      destructive. The default file has no volume at all.
+#   2. The database password comes from the environment. There is no default —
+#      compose refuses to start rather than silently using a known password.
+#   3. Postgres is not published to the host. Only the compose network reaches
+#      it; use `docker compose exec` for psql.
+#
+# Usage:
+#   cp .env.example .env      # then fill it in, see REQUIRED below
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# REQUIRED in .env:
+#   POSTGRES_PASSWORD          no default — generate one, e.g. `openssl rand -hex 24`
+#   DATA_ENCRYPTION_KEY        exactly 32 characters. Back this up: lose it and
+#                              every encrypted config value and vault secret is
+#                              unrecoverable.
+#   VITE_BASE_URL / VITE_BACKEND_*_URL / WHITELISTED_ORIGINS
+#                              must match the URL users actually visit.
+
+services:
+  hoppscotch-db:
+    image: postgres:15
+    container_name: hoppscotch-db
+    restart: unless-stopped
+    user: postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      # No default: compose errors out if this is unset, which is the point.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-hoppscotch}
+    volumes:
+      - hoppscotch-db-data:/var/lib/postgresql/data
+    # Deliberately no `ports:` — reach the DB with
+    #   docker compose -f docker-compose.prod.yml exec hoppscotch-db psql -U postgres -d hoppscotch
+    healthcheck:
+      test:
+        ["CMD-SHELL", "sh -c 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}'"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Applies pending migrations, then exits. `depends_on: service_completed_successfully`
+  # on the app keeps the app from serving against an un-migrated schema.
+  hoppscotch-migrate:
+    build:
+      dockerfile: prod.Dockerfile
+      context: .
+      target: backend
+    env_file:
+      - ./.env
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@hoppscotch-db:5432/${POSTGRES_DB:-hoppscotch}?connect_timeout=300
+    depends_on:
+      hoppscotch-db:
+        condition: service_healthy
+    restart: "no"
+    command: sh -c "pnpm exec prisma migrate deploy"
+
+  hoppscotch-aio:
+    build:
+      dockerfile: prod.Dockerfile
+      context: .
+      target: aio
+    container_name: hoppscotch-aio
+    restart: unless-stopped
+    env_file:
+      - ./.env
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@hoppscotch-db:5432/${POSTGRES_DB:-hoppscotch}?connect_timeout=300
+    depends_on:
+      hoppscotch-db:
+        condition: service_healthy
+      hoppscotch-migrate:
+        condition: service_completed_successfully
+    ports:
+      - "3000:3000" # app
+      - "3100:3100" # admin dashboard
+      - "3170:3170" # backend API / GraphQL
+      - "3200:3200" # desktop-app bundle server
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3170/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  hoppscotch-db-data:

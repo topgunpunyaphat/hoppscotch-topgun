@@ -63,10 +63,16 @@ export class DesktopInstanceService
   )
 
   /**
-   * Enable instance switching for this platform, adherence to platform def
+   * Enable instance switching for this platform, adherence to platform def.
+   *
+   * An internal build that ships pointed at one server sets
+   * `VITE_INSTANCE_SWITCHING_ENABLED=false`, which hides the switcher so the
+   * app can only ever reach that server and nobody lands on Hoppscotch Cloud
+   * by accident. Unset leaves switching on, as before.
    */
   public readonly instanceSwitchingEnabled: boolean =
-    getKernelMode() === "desktop"
+    getKernelMode() === "desktop" &&
+    import.meta.env.VITE_INSTANCE_SWITCHING_ENABLED !== "false"
 
   /**
    * Configuration options for instance management

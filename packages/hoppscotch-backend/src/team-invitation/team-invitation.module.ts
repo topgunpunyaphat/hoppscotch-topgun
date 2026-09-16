@@ -7,6 +7,9 @@ import { TeamInviteTeamOwnerGuard } from './team-invite-team-owner.guard';
 import { TeamInviteViewerGuard } from './team-invite-viewer.guard';
 import { TeamInviteeGuard } from './team-invitee.guard';
 import { TeamTeamInviteExtResolver } from './team-teaminvite-ext.resolver';
+import { TeamInviteLinkService } from './team-invite-link.service';
+import { TeamInviteLinkResolver } from './team-invite-link.resolver';
+import { TeamInviteLinkOwnerGuard } from './team-invite-link-owner.guard';
 
 @Module({
   imports: [TeamModule, UserModule],
@@ -17,7 +20,10 @@ import { TeamTeamInviteExtResolver } from './team-teaminvite-ext.resolver';
     TeamInviteeGuard,
     TeamInviteViewerGuard,
     TeamInviteTeamOwnerGuard,
+    TeamInviteLinkService,
+    TeamInviteLinkResolver,
+    TeamInviteLinkOwnerGuard,
   ],
-  exports: [TeamInvitationService],
+  exports: [TeamInvitationService, TeamInviteLinkService],
 })
 export class TeamInvitationModule {}

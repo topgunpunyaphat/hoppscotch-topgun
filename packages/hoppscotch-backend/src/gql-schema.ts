@@ -10,6 +10,7 @@ import { ShortcodeResolver } from './shortcode/shortcode.resolver';
 import { TeamCollectionResolver } from './team-collection/team-collection.resolver';
 import { TeamEnvironmentsResolver } from './team-environments/team-environments.resolver';
 import { TeamInvitationResolver } from './team-invitation/team-invitation.resolver';
+import { TeamInviteLinkResolver } from './team-invitation/team-invite-link.resolver';
 import { TeamRequestResolver } from './team-request/team-request.resolver';
 import { TeamMemberResolver } from './team/team-member.resolver';
 import { TeamResolver } from './team/team.resolver';
@@ -51,6 +52,7 @@ const RESOLVERS = [
   TeamEnvironmentsResolver,
   TeamEnvsTeamResolver,
   TeamInvitationResolver,
+  TeamInviteLinkResolver,
   TeamRequestResolver,
   UserResolver,
   UserEnvironmentsResolver,

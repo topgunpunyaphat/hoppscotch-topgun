@@ -45,6 +45,13 @@ export const AUTH_EMAIL_NOT_PROVIDED_BY_OAUTH =
   'auth/email_not_provided_by_oauth';
 
 /**
+ * Email domain is outside the configured allowlist
+ * (SSO Strategies)
+ */
+export const AUTH_EMAIL_DOMAIN_NOT_ALLOWED =
+  'auth/email_domain_not_allowed' as const;
+
+/**
  * Environment variable "DATA_ENCRYPTION_KEY" is not present in .env file
  */
 export const ENV_NOT_FOUND_KEY_DATA_ENCRYPTION_KEY =
@@ -359,6 +366,34 @@ export const TEAM_INVITE_NO_INVITE_FOUND =
   'team_invite/no_invite_found' as const;
 
 export const TEAM_INVITE_ALREADY_MEMBER = 'team_invite/already_member' as const;
+
+/**
+ * Invite link does not exist
+ * (TeamInviteLink)
+ */
+export const TEAM_INVITE_LINK_NOT_FOUND =
+  'team_invite_link/not_found' as const;
+
+/**
+ * Invite link has been revoked, has expired, or has no uses left
+ * (TeamInviteLink)
+ */
+export const TEAM_INVITE_LINK_INACTIVE =
+  'team_invite_link/inactive' as const;
+
+/**
+ * Invite links may not grant OWNER
+ * (TeamInviteLink)
+ */
+export const TEAM_INVITE_LINK_INVALID_ROLE =
+  'team_invite_link/invalid_role' as const;
+
+/**
+ * maxUses/expiry given as a non-positive value
+ * (TeamInviteLink)
+ */
+export const TEAM_INVITE_LINK_INVALID_LIMIT =
+  'team_invite_link/invalid_limit' as const;
 
 export const TEAM_INVITE_EMAIL_DO_NOT_MATCH =
   'team_invite/email_do_not_match' as const;

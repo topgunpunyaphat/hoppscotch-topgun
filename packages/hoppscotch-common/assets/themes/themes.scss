@@ -6,7 +6,7 @@
 :root {
   @include base-theme;
   @include dark-theme;
-  @include green-theme;
+  @include topgun-theme;
   @include dark-editor-theme;
   @include dark-tippy-theme;
 }
@@ -30,6 +30,10 @@
   @include black-editor-theme;
   @include black-tippy-theme;
   color-scheme: dark;
+}
+
+:root[data-accent="topgun"] {
+  @include topgun-theme;
 }
 
 :root[data-accent="blue"] {

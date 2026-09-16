@@ -28,6 +28,15 @@ export class InfraConfigResolver {
     return this.infraConfigService.isSMTPEnabled();
   }
 
+  @Query(() => Boolean, {
+    description:
+      'Check if team environments share secret values through the server',
+  })
+  @UseGuards(GqlAuthGuard)
+  isTeamSecretVaultEnabled() {
+    return this.infraConfigService.isTeamSecretVaultEnabled();
+  }
+
   @Query(() => InfraConfig, {
     description: 'Check if user history is enabled or not',
   })

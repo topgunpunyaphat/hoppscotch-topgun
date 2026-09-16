@@ -16,6 +16,14 @@ import {
   CreateTeamEnvironmentArgs,
   UpdateTeamEnvironmentArgs,
 } from './input-type.args';
+import { GqlUser } from 'src/decorators/gql-user.decorator';
+import { AuthUser } from 'src/types/AuthUser';
+
+/** Narrow the authenticated user down to what the audit trail records. */
+const auditActor = (user: AuthUser) => ({
+  uid: user?.uid ?? null,
+  email: user?.email ?? null,
+});
 
 @UseGuards(GqlThrottlerGuard)
 @Resolver(() => 'TeamEnvironment')
@@ -34,12 +42,14 @@ export class TeamEnvironmentsResolver {
   @RequiresTeamRole(TeamAccessRole.OWNER, TeamAccessRole.EDITOR)
   async createTeamEnvironment(
     @Args() args: CreateTeamEnvironmentArgs,
+    @GqlUser() user: AuthUser,
   ): Promise<TeamEnvironment> {
     const teamEnvironment =
       await this.teamEnvironmentsService.createTeamEnvironment(
         args.name,
         args.teamID,
         args.variables,
+        auditActor(user),
       );
 
     if (E.isLeft(teamEnvironment)) throwErr(teamEnvironment.left);
@@ -58,9 +68,12 @@ export class TeamEnvironmentsResolver {
       type: () => ID,
     })
     id: string,
+    @GqlUser() user: AuthUser,
   ): Promise<boolean> {
-    const isDeleted =
-      await this.teamEnvironmentsService.deleteTeamEnvironment(id);
+    const isDeleted = await this.teamEnvironmentsService.deleteTeamEnvironment(
+      id,
+      auditActor(user),
+    );
 
     if (E.isLeft(isDeleted)) throwErr(isDeleted.left);
     return isDeleted.right;
@@ -75,12 +88,14 @@ export class TeamEnvironmentsResolver {
   async updateTeamEnvironment(
     @Args()
     args: UpdateTeamEnvironmentArgs,
+    @GqlUser() user: AuthUser,
   ): Promise<TeamEnvironment> {
     const updatedTeamEnvironment =
       await this.teamEnvironmentsService.updateTeamEnvironment(
         args.id,
         args.name,
         args.variables,
+        auditActor(user),
       );
 
     if (E.isLeft(updatedTeamEnvironment)) throwErr(updatedTeamEnvironment.left);
@@ -99,10 +114,12 @@ export class TeamEnvironmentsResolver {
       type: () => ID,
     })
     id: string,
+    @GqlUser() user: AuthUser,
   ): Promise<TeamEnvironment> {
     const teamEnvironment =
       await this.teamEnvironmentsService.deleteAllVariablesFromTeamEnvironment(
         id,
+        auditActor(user),
       );
 
     if (E.isLeft(teamEnvironment)) throwErr(teamEnvironment.left);
@@ -121,9 +138,12 @@ export class TeamEnvironmentsResolver {
       type: () => ID,
     })
     id: string,
+    @GqlUser() user: AuthUser,
   ): Promise<TeamEnvironment> {
-    const res =
-      await this.teamEnvironmentsService.createDuplicateEnvironment(id);
+    const res = await this.teamEnvironmentsService.createDuplicateEnvironment(
+      id,
+      auditActor(user),
+    );
 
     if (E.isLeft(res)) throwErr(res.left);
     return res.right;

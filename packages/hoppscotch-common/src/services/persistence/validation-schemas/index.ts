@@ -17,6 +17,7 @@ import { z } from "zod"
 import { HoppAccentColors, HoppBgColors } from "~/newstore/settings"
 
 const ThemeColorSchema = z.enum([
+  "topgun",
   "green",
   "teal",
   "blue",

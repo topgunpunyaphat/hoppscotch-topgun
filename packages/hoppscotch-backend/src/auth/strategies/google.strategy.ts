@@ -8,8 +8,12 @@ import * as E from 'fp-ts/Either';
 import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
 import { validateEmail } from 'src/utils';
-import { AUTH_EMAIL_NOT_PROVIDED_BY_OAUTH } from 'src/errors';
+import {
+  AUTH_EMAIL_DOMAIN_NOT_ALLOWED,
+  AUTH_EMAIL_NOT_PROVIDED_BY_OAUTH,
+} from 'src/errors';
 import { StatelessStateStore } from '../stateless-state-store';
+import { isEmailDomainAllowed, parseAllowedEmailDomains } from '../helper';
 
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy) {
@@ -41,10 +45,19 @@ export class GoogleStrategy extends PassportStrategy(Strategy) {
     profile: Profile,
     done: VerifyCallback,
   ) {
-    const email = profile.emails?.[0].value;
+    const email = profile.emails?.[0]?.value;
 
     if (!validateEmail(email))
       throw new UnauthorizedException(AUTH_EMAIL_NOT_PROVIDED_BY_OAUTH);
+
+    // Gate before any lookup or auto-provision: `createUserSSO` below creates
+    // an account for any address Google hands back, so an unchecked domain is
+    // open registration for the whole instance.
+    const allowedDomains = parseAllowedEmailDomains(
+      this.configService.get<string>('INFRA.GOOGLE_ALLOWED_DOMAINS'),
+    );
+    if (!isEmailDomainAllowed(email, allowedDomains))
+      throw new UnauthorizedException(AUTH_EMAIL_DOMAIN_NOT_ALLOWED);
 
     const user = await this.usersService.findUserByEmail(email);
 

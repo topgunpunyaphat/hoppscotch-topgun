@@ -42,6 +42,38 @@ async fn device_token<R: Runtime>(
     StatusCode::OK.into_response()
 }
 
+/// Opt in to Chrome's Private Network Access check.
+///
+/// The login page runs on the Hoppscotch server and posts the tokens back to
+/// this loopback listener. When that server is on a public address, Chrome
+/// classes the call as public -> local and blocks it unless the preflight is
+/// answered with this header. `CorsLayer` does not emit it, so it is added
+/// here; without it the browser shows "Login Error" while this server never
+/// sees a request at all.
+///
+/// Chrome only honours the opt-in when the page is a secure context, so an
+/// http:// deployment stays blocked regardless — the server needs TLS too.
+async fn allow_private_network(
+    req: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    let asked = req
+        .headers()
+        .get("access-control-request-private-network")
+        .is_some_and(|v| v.as_bytes().eq_ignore_ascii_case(b"true"));
+
+    let mut res = next.run(req).await;
+
+    if asked {
+        res.headers_mut().insert(
+            "access-control-allow-private-network",
+            axum::http::HeaderValue::from_static("true"),
+        );
+    }
+
+    res
+}
+
 pub(crate) fn init<R: Runtime>(port: u16, handle: tauri::AppHandle<R>) -> u16 {
     tracing::info!("Beginning server initialization");
 
@@ -50,7 +82,12 @@ pub(crate) fn init<R: Runtime>(port: u16, handle: tauri::AppHandle<R>) -> u16 {
             "/device-token",
             get(move |query| device_token(query, handle.clone())),
         )
-        .layer(CorsLayer::very_permissive());
+        // Order matters: the last layer added is the outermost, and
+        // `CorsLayer` answers the preflight itself without calling inward. The
+        // PNA layer therefore has to wrap it, not sit beneath it, or the header
+        // is never attached to the response the browser actually sees.
+        .layer(CorsLayer::very_permissive())
+        .layer(axum::middleware::from_fn(allow_private_network));
 
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
 

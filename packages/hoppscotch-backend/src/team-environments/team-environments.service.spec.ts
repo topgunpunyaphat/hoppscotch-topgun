@@ -17,12 +17,27 @@ const mockPubSub = {
 };
 const mockTeamService = mockDeep<TeamService>();
 
+// `encrypt`/`decrypt` read this at call time; the vault cases below need it.
+process.env.DATA_ENCRYPTION_KEY = '12345678901234567890123456789012';
+
+// The vault is off in these tests, matching the shipped default, so secret
+// values are stripped on both read and write and these cases keep asserting
+// the pre-vault behaviour.
+const mockConfigService = {
+  get: jest.fn().mockReturnValue('false'),
+};
+const mockAuditService = {
+  record: jest.fn().mockResolvedValue(undefined),
+};
+
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 const teamEnvironmentsService = new TeamEnvironmentsService(
   mockPrisma,
   mockPubSub as any,
   mockTeamService,
+  mockConfigService as any,
+  mockAuditService as any,
 );
 
 const teamEnvironment = {
@@ -35,6 +50,8 @@ const teamEnvironment = {
 beforeEach(() => {
   mockReset(mockPrisma);
   mockPubSub.publish.mockClear();
+  mockConfigService.get.mockReturnValue('false');
+  mockAuditService.record.mockClear();
 });
 
 describe('TeamEnvironmentsService', () => {
@@ -59,6 +76,115 @@ describe('TeamEnvironmentsService', () => {
         teamEnvironment.id,
       );
       expect(result).toEqualLeft(TEAM_ENVIRONMENT_NOT_FOUND);
+    });
+  });
+
+  describe('team secret vault', () => {
+    const secretVar = {
+      key: 'token',
+      initialValue: 's3cr3t',
+      currentValue: '',
+      secret: true,
+    };
+
+    const enableVault = () =>
+      mockConfigService.get.mockImplementation((key: string) =>
+        key === 'INFRA.TEAM_SECRET_VAULT_ENABLED' ? 'true' : 'false',
+      );
+
+    test('stores a secret encrypted, never as plaintext, when the vault is on', async () => {
+      enableVault();
+      mockPrisma.teamEnvironment.create.mockResolvedValue(teamEnvironment);
+
+      await teamEnvironmentsService.createTeamEnvironment(
+        'env',
+        'abc123',
+        JSON.stringify([secretVar]),
+      );
+
+      const stored = (mockPrisma.teamEnvironment.create as jest.Mock).mock
+        .calls[0][0].data.variables;
+      expect(stored[0].initialValue).toMatch(/^vault:v1:/);
+      expect(JSON.stringify(stored)).not.toContain('s3cr3t');
+    });
+
+    test('drops a secret value instead of storing it when the vault is off', async () => {
+      mockPrisma.teamEnvironment.create.mockResolvedValue(teamEnvironment);
+
+      await teamEnvironmentsService.createTeamEnvironment(
+        'env',
+        'abc123',
+        JSON.stringify([secretVar]),
+      );
+
+      const stored = (mockPrisma.teamEnvironment.create as jest.Mock).mock
+        .calls[0][0].data.variables;
+      expect(stored[0].initialValue).toBe('');
+    });
+
+    test('hands the plaintext back to a team member on read', async () => {
+      enableVault();
+      mockPrisma.teamEnvironment.create.mockResolvedValue(teamEnvironment);
+      await teamEnvironmentsService.createTeamEnvironment(
+        'env',
+        'abc123',
+        JSON.stringify([secretVar]),
+      );
+      const stored = (mockPrisma.teamEnvironment.create as jest.Mock).mock
+        .calls[0][0].data.variables;
+
+      mockPrisma.teamEnvironment.findMany.mockResolvedValue([
+        { ...teamEnvironment, variables: stored },
+      ] as any);
+
+      const [env] =
+        await teamEnvironmentsService.fetchAllTeamEnvironments('abc123');
+      expect(JSON.parse(env.variables)[0].initialValue).toBe('s3cr3t');
+    });
+
+    test('withholds a stored secret once the vault is switched back off', async () => {
+      enableVault();
+      mockPrisma.teamEnvironment.create.mockResolvedValue(teamEnvironment);
+      await teamEnvironmentsService.createTeamEnvironment(
+        'env',
+        'abc123',
+        JSON.stringify([secretVar]),
+      );
+      const stored = (mockPrisma.teamEnvironment.create as jest.Mock).mock
+        .calls[0][0].data.variables;
+
+      mockConfigService.get.mockReturnValue('false');
+      mockPrisma.teamEnvironment.findMany.mockResolvedValue([
+        { ...teamEnvironment, variables: stored },
+      ] as any);
+
+      const [env] =
+        await teamEnvironmentsService.fetchAllTeamEnvironments('abc123');
+      expect(JSON.parse(env.variables)[0].initialValue).toBe('');
+    });
+
+    test('records the actor and secret key names — never the value — on write', async () => {
+      enableVault();
+      mockPrisma.teamEnvironment.create.mockResolvedValue(teamEnvironment);
+
+      await teamEnvironmentsService.createTeamEnvironment(
+        'env',
+        'abc123',
+        JSON.stringify([secretVar]),
+        { uid: 'uid-1', email: 'dev@topgun.com' },
+      );
+
+      expect(mockAuditService.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'CREATE',
+          secretKeys: ['token'],
+          actorUid: 'uid-1',
+          actorEmail: 'dev@topgun.com',
+        }),
+      );
+      expect(JSON.stringify(mockAuditService.record.mock.calls)).not.toContain(
+        's3cr3t',
+      );
     });
   });
 

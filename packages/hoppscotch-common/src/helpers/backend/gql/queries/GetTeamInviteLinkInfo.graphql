@@ -1,0 +1,8 @@
+query GetTeamInviteLinkInfo($linkID: ID!) {
+  teamInviteLinkInfo(linkID: $linkID) {
+    id
+    teamID
+    teamName
+    role
+  }
+}

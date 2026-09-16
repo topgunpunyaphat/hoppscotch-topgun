@@ -30,6 +30,64 @@ export const stripClientLocalValuesForWire = <T extends SecretCapableVariable>(
   }))
 
 /**
+ * Wire shape for a TEAM environment while the server-side secret vault is on.
+ *
+ * Unlike `stripClientLocalValuesForWire`, a secret's `initialValue` is kept:
+ * it is the value the whole team shares, and the backend encrypts it at rest
+ * before it ever reaches a column. `currentValue` is still dropped for every
+ * variable — that one stays a per-user override in `CurrentValueService` and
+ * has no business being shared.
+ *
+ * Only the team-environment save path may use this. Exports, personal
+ * environments, collection variables and mock servers must keep using
+ * `stripClientLocalValuesForWire`, which leaks nothing.
+ */
+export const stripClientLocalValuesForVaultWire = <
+  T extends SecretCapableVariable,
+>(
+  variables: T[]
+): T[] => variables.map((v) => ({ ...v, currentValue: "" }))
+
+/**
+ * Seed secret values handed back by the vault, without trampling what this
+ * user has typed locally.
+ *
+ * A non-empty local value is this user's own override and always wins; the
+ * shared vault value only fills the gap for someone who has never set one.
+ * That also makes this safe to run on every fetch.
+ *
+ * When the vault is off the server sends blanks, so this degrades to exactly
+ * the pre-vault behaviour and needs no flag of its own.
+ */
+export const hydrateVaultSecrets = (
+  entityId: string,
+  variables: readonly SecretCapableVariable[]
+) => {
+  if (!entityId) return
+
+  const secretEnvironmentService = getService(SecretEnvironmentService)
+  const existing = secretEnvironmentService.getSecretEnvironment(entityId) ?? []
+
+  const secrets = variables.flatMap((v, index) => {
+    if (!v.secret) return []
+
+    const localValue = existing.find((s) => s.varIndex === index)?.value
+    const sharedValue = v.initialValue ?? ""
+
+    return [
+      {
+        key: v.key,
+        varIndex: index,
+        initialValue: sharedValue,
+        value: localValue ? localValue : sharedValue,
+      },
+    ]
+  })
+
+  secretEnvironmentService.addSecretEnvironment(entityId, secrets)
+}
+
+/**
  * Seed the local secret + currentValue stores from RAW (pre-strip) variables —
  * stripped inputs would persist as blanks.
  *

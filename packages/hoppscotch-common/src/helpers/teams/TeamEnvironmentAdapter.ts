@@ -15,6 +15,7 @@ import {
   EnvironmentSchemaVersion,
   translateToNewEnvironmentVariables,
 } from "@hoppscotch/data"
+import { hydrateVaultSecrets } from "../clientLocalVariables"
 
 type EntityType = "environment"
 type EntityID = `${EntityType}-${string}`
@@ -130,6 +131,11 @@ export default class TeamEnvironmentAdapter {
           }
 
           const parsedEnvironment = Environment.safeParse(environment)
+
+          // Seed secret values the vault shared with this team. With the vault
+          // off the server sends blanks, so this is a no-op and each member
+          // keeps whatever they typed locally.
+          hydrateVaultSecrets(x.id, environment.variables)
 
           return <TeamEnvironment>{
             id: x.id,

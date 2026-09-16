@@ -14,15 +14,62 @@ import {
 import * as E from 'fp-ts/Either';
 import { isValidLength } from 'src/utils';
 import { TeamService } from 'src/team/team.service';
+import { ConfigService } from '@nestjs/config';
+import { TeamSecretAuditAction } from 'src/generated/prisma/client';
+import { TeamSecretAuditService } from './team-secret-audit.service';
+import {
+  decryptSecretVariables,
+  encryptSecretVariables,
+  secretKeysOf,
+  stripSecretValues,
+  toVariableList,
+} from './vault';
+
+/** Who performed a vault-touching operation, for the audit trail. */
+export type SecretAuditActor = {
+  uid?: string | null;
+  email?: string | null;
+};
+
 @Injectable()
 export class TeamEnvironmentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly pubsub: PubSubService,
     private readonly teamService: TeamService,
+    private readonly configService: ConfigService,
+    private readonly auditService: TeamSecretAuditService,
   ) {}
 
   TITLE_LENGTH = 1;
+
+  /**
+   * Whether secret values are shared through the server at all. While off,
+   * secrets are blanked on both read and write, which is the pre-vault
+   * behaviour and the safe default for an instance that never opted in.
+   */
+  private isVaultEnabled() {
+    return (
+      this.configService.get<string>('INFRA.TEAM_SECRET_VAULT_ENABLED') ===
+      'true'
+    );
+  }
+
+  /** Storage shape -> wire shape. */
+  private readVariables(stored: unknown) {
+    const variables = toVariableList(stored);
+    return this.isVaultEnabled()
+      ? decryptSecretVariables(variables)
+      : stripSecretValues(variables);
+  }
+
+  /** Wire shape -> storage shape. */
+  private writeVariables(incoming: unknown) {
+    const variables = toVariableList(incoming);
+    return this.isVaultEnabled()
+      ? encryptSecretVariables(variables)
+      : stripSecretValues(variables);
+  }
 
   /**
    * TeamEnvironments are saved in the DB in the following way
@@ -41,7 +88,7 @@ export class TeamEnvironmentsService {
       id,
       name,
       teamID,
-      variables: JSON.stringify(teamEnvironment.variables),
+      variables: JSON.stringify(this.readVariables(teamEnvironment.variables)),
     };
   }
 
@@ -71,16 +118,33 @@ export class TeamEnvironmentsService {
    * @param variables JSONified string of contents of new TeamEnvironment
    * @returns Either of a TeamEnvironment or error message
    */
-  async createTeamEnvironment(name: string, teamID: string, variables: string) {
+  async createTeamEnvironment(
+    name: string,
+    teamID: string,
+    variables: string,
+    actor?: SecretAuditActor,
+  ) {
     const isTitleValid = isValidLength(name, this.TITLE_LENGTH);
     if (!isTitleValid) return E.left(TEAM_ENVIRONMENT_SHORT_NAME);
+
+    const storedVariables = this.writeVariables(JSON.parse(variables));
 
     const result = await this.prisma.teamEnvironment.create({
       data: {
         name,
         teamID,
-        variables: JSON.parse(variables),
+        variables: storedVariables as Prisma.JsonArray,
       },
+    });
+
+    await this.auditService.record({
+      teamID,
+      environmentID: result.id,
+      environmentName: result.name,
+      action: TeamSecretAuditAction.CREATE,
+      secretKeys: secretKeysOf(storedVariables),
+      actorUid: actor?.uid,
+      actorEmail: actor?.email,
     });
 
     const createdTeamEnvironment = this.cast(result);
@@ -99,12 +163,22 @@ export class TeamEnvironmentsService {
    * @param id TeamEnvironment ID
    * @returns Either of boolean or error message
    */
-  async deleteTeamEnvironment(id: string) {
+  async deleteTeamEnvironment(id: string, actor?: SecretAuditActor) {
     try {
       const result = await this.prisma.teamEnvironment.delete({
         where: {
           id,
         },
+      });
+
+      await this.auditService.record({
+        teamID: result.teamID,
+        environmentID: result.id,
+        environmentName: result.name,
+        action: TeamSecretAuditAction.DELETE,
+        secretKeys: secretKeysOf(toVariableList(result.variables)),
+        actorUid: actor?.uid,
+        actorEmail: actor?.email,
       });
 
       const deletedTeamEnvironment = this.cast(result);
@@ -128,17 +202,34 @@ export class TeamEnvironmentsService {
    * @param variables JSONified string of contents of new TeamEnvironment
    * @returns Either of a TeamEnvironment or error message
    */
-  async updateTeamEnvironment(id: string, name: string, variables: string) {
+  async updateTeamEnvironment(
+    id: string,
+    name: string,
+    variables: string,
+    actor?: SecretAuditActor,
+  ) {
     try {
       const isTitleValid = isValidLength(name, this.TITLE_LENGTH);
       if (!isTitleValid) return E.left(TEAM_ENVIRONMENT_SHORT_NAME);
+
+      const storedVariables = this.writeVariables(JSON.parse(variables));
 
       const result = await this.prisma.teamEnvironment.update({
         where: { id },
         data: {
           name,
-          variables: JSON.parse(variables),
+          variables: storedVariables as Prisma.JsonArray,
         },
+      });
+
+      await this.auditService.record({
+        teamID: result.teamID,
+        environmentID: result.id,
+        environmentName: result.name,
+        action: TeamSecretAuditAction.UPDATE,
+        secretKeys: secretKeysOf(storedVariables),
+        actorUid: actor?.uid,
+        actorEmail: actor?.email,
       });
 
       const updatedTeamEnvironment = this.cast(result);
@@ -160,13 +251,33 @@ export class TeamEnvironmentsService {
    * @param id TeamEnvironment ID
    * @returns Either of a TeamEnvironment or error message
    */
-  async deleteAllVariablesFromTeamEnvironment(id: string) {
+  async deleteAllVariablesFromTeamEnvironment(
+    id: string,
+    actor?: SecretAuditActor,
+  ) {
     try {
+      // Read first: the update returns the emptied row, so the keys being
+      // discarded are only knowable beforehand.
+      const previous = await this.prisma.teamEnvironment.findUnique({
+        where: { id },
+        select: { variables: true },
+      });
+
       const result = await this.prisma.teamEnvironment.update({
         where: { id: id },
         data: {
           variables: [],
         },
+      });
+
+      await this.auditService.record({
+        teamID: result.teamID,
+        environmentID: result.id,
+        environmentName: result.name,
+        action: TeamSecretAuditAction.DELETE,
+        secretKeys: secretKeysOf(toVariableList(previous?.variables)),
+        actorUid: actor?.uid,
+        actorEmail: actor?.email,
       });
 
       const teamEnvironment = this.cast(result);
@@ -188,7 +299,7 @@ export class TeamEnvironmentsService {
    * @param id TeamEnvironment ID
    * @returns Either of a TeamEnvironment or error message
    */
-  async createDuplicateEnvironment(id: string) {
+  async createDuplicateEnvironment(id: string, actor?: SecretAuditActor) {
     try {
       const environment = await this.prisma.teamEnvironment.findFirstOrThrow({
         where: {
@@ -196,12 +307,24 @@ export class TeamEnvironmentsService {
         },
       });
 
+      // Ciphertext copies verbatim — no decrypt/re-encrypt round trip, so a
+      // duplicate never materialises a secret in memory.
       const result = await this.prisma.teamEnvironment.create({
         data: {
           name: `${environment.name} - Duplicate`,
           teamID: environment.teamID,
           variables: environment.variables as Prisma.JsonArray,
         },
+      });
+
+      await this.auditService.record({
+        teamID: result.teamID,
+        environmentID: result.id,
+        environmentName: result.name,
+        action: TeamSecretAuditAction.CREATE,
+        secretKeys: secretKeysOf(toVariableList(result.variables)),
+        actorUid: actor?.uid,
+        actorEmail: actor?.email,
       });
 
       const duplicatedTeamEnvironment = this.cast(result);
@@ -270,7 +393,18 @@ export class TeamEnvironmentsService {
       );
       if (!teamMember) return E.left(TEAM_MEMBER_NOT_FOUND);
 
-      return E.right(teamEnvironment);
+      const variables = this.readVariables(teamEnvironment.variables);
+
+      await this.auditService.record({
+        teamID: teamEnvironment.teamID,
+        environmentID: teamEnvironment.id,
+        environmentName: teamEnvironment.name,
+        action: TeamSecretAuditAction.READ,
+        secretKeys: secretKeysOf(variables),
+        actorUid: userUid,
+      });
+
+      return E.right({ ...teamEnvironment, variables });
     } catch (error) {
       return E.left(TEAM_ENVIRONMENT_NOT_FOUND);
     }

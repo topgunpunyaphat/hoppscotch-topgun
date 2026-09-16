@@ -93,6 +93,37 @@
         <HoppSmartSpinner />
       </div>
       <div v-else class="flex flex-col">
+        <div class="mb-6 flex flex-col px-4">
+          <label class="pb-2">{{ t("team.invite_link") }}</label>
+          <p class="mb-3 text-tiny text-secondaryLight">
+            {{ t("team.invite_link_description") }}
+          </p>
+          <div class="flex items-center space-x-2">
+            <HoppSmartRadioGroup
+              :radios="inviteLinkRoles"
+              :model-value="inviteLinkRole"
+              class="!flex-row"
+              @update:model-value="setInviteLinkRole"
+            />
+            <HoppButtonSecondary
+              :label="
+                shareLink ? t('action.copy') : t('team.invite_link_create')
+              "
+              :icon="shareLink ? IconCopy : IconLink"
+              :loading="creatingInviteLink"
+              filled
+              @click="shareLink ? copyShareLink() : createShareLink()"
+            />
+          </div>
+          <input
+            v-if="shareLink"
+            :value="shareLink"
+            readonly
+            class="mt-3 w-full rounded bg-primaryLight p-2 text-secondaryDark"
+            @focus="($event.target as HTMLInputElement).select()"
+          />
+        </div>
+
         <div class="flex flex-1 items-center justify-between">
           <label for="memberList" class="px-4 pb-4">
             {{ t("team.pending_invites") }}
@@ -390,6 +421,8 @@
 </template>
 
 <script setup lang="ts">
+import IconLink from "~icons/lucide/link"
+import { createTeamInviteLink } from "~/helpers/backend/mutations/TeamInviteLink"
 import { useGQLQuery } from "@composables/graphql"
 import * as A from "fp-ts/Array"
 import * as E from "fp-ts/Either"
@@ -462,6 +495,52 @@ const emit = defineEmits<{
 }>()
 
 const inviteMethod = ref<"email" | "link">("email")
+
+// --- Shareable join link ---------------------------------------------------
+// A link is not bound to an address, so anyone who can sign in and opens it
+// joins. Who can sign in at all is gated upstream (GOOGLE_ALLOWED_DOMAINS),
+// which is what keeps a forwarded link inside the company.
+//
+// OWNER is absent on purpose and the backend rejects it too: ownership should
+// not be transferable by pasting a URL into a chat.
+const inviteLinkRoles = computed(() => [
+  { value: TeamAccessRole.Editor, label: "EDITOR" },
+  { value: TeamAccessRole.Viewer, label: "VIEWER" },
+])
+const inviteLinkRole = ref<TeamAccessRole>(TeamAccessRole.Editor)
+const shareLink = ref("")
+const creatingInviteLink = ref(false)
+
+// Changing the role invalidates the link already on screen — it carries the
+// old role, and handing it out after switching would grant the wrong access.
+const setInviteLinkRole = (role: TeamAccessRole) => {
+  inviteLinkRole.value = role
+  shareLink.value = ""
+}
+
+const createShareLink = async () => {
+  creatingInviteLink.value = true
+  const result = await createTeamInviteLink(
+    props.editingTeamID,
+    inviteLinkRole.value
+  )()
+  creatingInviteLink.value = false
+
+  if (E.isLeft(result)) {
+    toast.error(`${t("error.something_went_wrong")}`)
+    return
+  }
+
+  shareLink.value = `${import.meta.env.VITE_BASE_URL}/join?link=${
+    result.right.createTeamInviteLink.id
+  }`
+  copyShareLink()
+}
+
+const copyShareLink = () => {
+  copyToClipboard(shareLink.value)
+  toast.success(`${t("team.invite_link_copied")}`)
+}
 
 let organizationDomain = ""
 

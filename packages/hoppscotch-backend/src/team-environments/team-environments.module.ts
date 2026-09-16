@@ -5,6 +5,7 @@ import { UserModule } from 'src/user/user.module';
 import { TeamModule } from 'src/team/team.module';
 import { GqlTeamEnvTeamGuard } from './gql-team-env-team.guard';
 import { TeamEnvsTeamResolver } from './team.resolver';
+import { TeamSecretAuditService } from './team-secret-audit.service';
 
 @Module({
   imports: [UserModule, TeamModule],
@@ -13,6 +14,7 @@ import { TeamEnvsTeamResolver } from './team.resolver';
     TeamEnvironmentsService,
     GqlTeamEnvTeamGuard,
     TeamEnvsTeamResolver,
+    TeamSecretAuditService,
   ],
   exports: [TeamEnvironmentsService, GqlTeamEnvTeamGuard],
 })

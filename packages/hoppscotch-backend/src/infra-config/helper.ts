@@ -12,7 +12,14 @@ export enum ServiceStatus {
   DISABLE = 'DISABLE',
 }
 
-const SYNC_ONLY_VARIABLES = [InfraConfigEnum.PROXY_APP_URL];
+// Keys whose .env value stays authoritative: a change there is picked up on
+// the next restart, instead of the DB row being frozen at first boot. The
+// allowlist belongs here because it is a security control — it should move
+// with the deployment, not be editable from the admin dashboard.
+const SYNC_ONLY_VARIABLES = [
+  InfraConfigEnum.PROXY_APP_URL,
+  InfraConfigEnum.GOOGLE_ALLOWED_DOMAINS,
+];
 
 type DefaultInfraConfig = {
   name: InfraConfigEnum;
@@ -295,6 +302,23 @@ export async function getDefaultInfraConfigs(): Promise<DefaultInfraConfig[]> {
     {
       name: InfraConfigEnum.GOOGLE_SCOPE,
       value: null,
+      isEncrypted: false,
+    },
+    {
+      name: InfraConfigEnum.GOOGLE_ALLOWED_DOMAINS,
+      value: process.env.GOOGLE_ALLOWED_DOMAINS || null,
+      isEncrypted: false,
+    },
+    {
+      name: InfraConfigEnum.TEAM_SECRET_VAULT_ENABLED,
+      value: process.env.TEAM_SECRET_VAULT_ENABLED || 'false',
+      isEncrypted: false,
+    },
+    {
+      // Writes are always audited; reads are opt-in because every workspace
+      // load fetches every environment, so read rows accumulate fast.
+      name: InfraConfigEnum.TEAM_SECRET_VAULT_AUDIT_READS,
+      value: process.env.TEAM_SECRET_VAULT_AUDIT_READS || 'false',
       isEncrypted: false,
     },
     {

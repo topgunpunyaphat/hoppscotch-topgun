@@ -41,10 +41,19 @@ add_platform() {
 # macOS names its bundle identically whatever it was built for, so the arch has
 # to come from the binary. Shipping an arm64 archive under darwin-x86_64 would
 # hand Intel machines an update they cannot run.
+# The bundle is named after productName, so it is discovered rather than
+# hardcoded — renaming the product must not silently stop releases working.
+macos_app() {
+  find "$1/macos" -maxdepth 1 -name '*.app' -print -quit 2>/dev/null
+}
+
 macos_key() {
-  local app_dir="$1/macos/Hoppscotch.app"
-  local bin="$app_dir/Contents/MacOS/hoppscotch-desktop"
-  [[ -f "$bin" ]] || return 1
+  local app_dir
+  app_dir=$(macos_app "$1")
+  [[ -n "$app_dir" ]] || return 1
+  local bin
+  bin=$(find "$app_dir/Contents/MacOS" -maxdepth 1 -type f -perm -u+x -print -quit 2>/dev/null)
+  [[ -n "$bin" ]] || return 1
   case "$(lipo -info "$bin" 2>/dev/null)" in
     *"arm64"*[!a-z]*x86_64*|*x86_64*[!a-z]*arm64*) echo "universal" ;;
     *arm64*)  echo "darwin-aarch64" ;;
@@ -58,12 +67,13 @@ collect_from() {
   [[ -d "$dir" ]] || return 0
 
   if key=$(macos_key "$dir"); then
+    local archive="$(macos_app "$dir").tar.gz"
     if [[ "$key" == "universal" ]]; then
       # A universal binary serves both, so it is registered under each key.
-      add_platform "darwin-aarch64" "$dir/macos/Hoppscotch.app.tar.gz"
-      add_platform "darwin-x86_64"  "$dir/macos/Hoppscotch.app.tar.gz"
+      add_platform "darwin-aarch64" "$archive"
+      add_platform "darwin-x86_64"  "$archive"
     else
-      add_platform "$key" "$dir/macos/Hoppscotch.app.tar.gz"
+      add_platform "$key" "$archive"
     fi
   fi
 

@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import type { Instance } from "@hoppscotch/common/platform/instance"
+import {
+  VENDORED_INSTANCE_CONFIG,
+  type Instance,
+} from "@hoppscotch/common/platform/instance"
 
 type LoadCall = { bundleName: string; host?: string }
 
@@ -140,7 +143,9 @@ describe("loadRecent auth probe", () => {
 
     expect(resumedHosts()).toEqual([])
     expect(load).toHaveBeenCalledWith(
-      expect.objectContaining({ bundleName: "Hoppscotch" })
+      expect.objectContaining({
+        bundleName: VENDORED_INSTANCE_CONFIG.bundleName,
+      })
     )
     expect(store.instanceAuthFailure).toBeNull()
   })

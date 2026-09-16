@@ -101,7 +101,9 @@ export function useAppInitialization() {
         instance: VENDORED_INSTANCE_CONFIG,
       })
 
-      mainDiag("loadVendoredInstance: calling load(bundleName=Hoppscotch)")
+      mainDiag(
+        `loadVendoredInstance: calling load(bundleName=${VENDORED_INSTANCE_CONFIG.bundleName})`
+      )
       console.log("Loading vendored app...")
 
       // Wait for the store read before forwarding `zoomLevel`, so the

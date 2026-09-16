@@ -14,13 +14,18 @@ export type Instance = {
   bundleName?: string
 }
 
+// `bundleName` must equal the Tauri productName: the appload plugin registers
+// the vendored bundle under `lowercase(productName)` and looks it up under a
+// sanitized form of this value, so a mismatch serves an empty window. The
+// plugin does not sanitize on the registering side, which is also why the name
+// has to stay alphanumeric.
 export const VENDORED_INSTANCE_CONFIG: Instance = {
   kind: "vendored" as const,
-  serverUrl: "app://hoppscotch",
-  displayName: "Hoppscotch Desktop",
+  serverUrl: "app://topgunapitool",
+  displayName: "Topgun - API Tool",
   version: "26.8.1",
   lastUsed: new Date().toISOString(),
-  bundleName: "Hoppscotch",
+  bundleName: "TopgunAPITool",
 }
 
 export type ConnectionState =

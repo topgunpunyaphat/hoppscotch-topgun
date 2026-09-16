@@ -12,7 +12,14 @@ export enum ServiceStatus {
   DISABLE = 'DISABLE',
 }
 
-const SYNC_ONLY_VARIABLES = [InfraConfigEnum.PROXY_APP_URL];
+// Keys whose .env value stays authoritative: a change there is picked up on
+// the next restart, instead of the DB row being frozen at first boot. The
+// allowlist belongs here because it is a security control — it should move
+// with the deployment, not be editable from the admin dashboard.
+const SYNC_ONLY_VARIABLES = [
+  InfraConfigEnum.PROXY_APP_URL,
+  InfraConfigEnum.GOOGLE_ALLOWED_DOMAINS,
+];
 
 type DefaultInfraConfig = {
   name: InfraConfigEnum;

@@ -1,3 +1,19 @@
+// Topgun brand accent. Written as literal hex rather than a Tailwind token
+// because #00bff9 is the brand value, not a palette step.
+//
+// The contrast colour is dark, not white like the other accents: white on
+// #00bff9 measures 2.14:1, below the 4.5:1 WCAG AA threshold, while this dark
+// value reaches 7.96:1.
+@mixin topgun-theme {
+  --accent-color: #00bff9;
+  --accent-light-color: #4cd2fa;
+  --accent-dark-color: #0098c7;
+  --accent-contrast-color: #1c1c1e;
+  --gradient-from-color: #4cd2fa;
+  --gradient-via-color: #00bff9;
+  --gradient-to-color: #0098c7;
+}
+
 @mixin green-theme {
   --accent-color: theme("colors.emerald.500");
   --accent-light-color: theme("colors.emerald.400");

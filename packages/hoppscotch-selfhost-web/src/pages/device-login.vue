@@ -53,7 +53,7 @@
     <footer class="p-4">
       <HoppButtonSecondary
         class="!font-bold tracking-wide !text-secondaryDark"
-        label="HOPPSCOTCH"
+        :label="t('app.name')"
         to="/"
       />
     </footer>

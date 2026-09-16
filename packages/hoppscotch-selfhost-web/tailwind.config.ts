@@ -6,6 +6,17 @@ export default {
   presets: [preset],
   theme: {
     extend: {
+      colors: {
+        // The accent picker paints each swatch with `text-<name>-500`, so the
+        // brand accent needs its own palette entry or its swatch renders
+        // colourless. The CSS variables in accent-themes.scss are what actually
+        // theme the app; these three only paint the swatch.
+        topgun: {
+          400: "#4cd2fa",
+          500: "#00bff9",
+          600: "#0098c7",
+        },
+      },
       inset: {
         upperPrimaryStickyFold: "var(--upper-primary-sticky-fold)",
         upperSecondaryStickyFold: "var(--upper-secondary-sticky-fold)",

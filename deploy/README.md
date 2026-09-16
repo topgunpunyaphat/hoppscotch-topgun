@@ -102,14 +102,16 @@ handle_path /download* {
 }
 ```
 
-Two things to set before the first real release:
+One thing to set before the first real release:
 
 - `src-tauri/tauri.conf.json` → `plugins.updater.endpoints` must be
   `https://<host>/download/latest.json`. It ships pointing at
   releases.hoppscotch.com, which we do not control.
-- Generate a signing key with a password
-  (`pnpm tauri signer generate -w ~/.tauri/topgun.key`) and keep it in CI, not
-  on a laptop. Losing it means clients can no longer be updated.
+
+The signing key lives at `~/.tauri/topgun-desktop.key` and its public half is
+already in the three tauri configs. Back the private key up: every installed
+client trusts only this key, so losing it means no client can ever be updated
+again, and anyone holding it can publish an update those clients will install.
 
 Build per architecture: Apple Silicon and Intel Macs need separate builds
 (`rustup target add x86_64-apple-darwin`), and Windows must be built on

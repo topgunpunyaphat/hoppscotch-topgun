@@ -167,8 +167,7 @@ export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=...
 BASE_URL=https://<host>/download ./deploy/make-release.sh 26.8.1 ./release
 ```
 
-Copy `./release/` to wherever the server serves `/download`, then add to the
-Caddyfile:
+Copy `./release/` into the directory the front proxy serves as `/download`:
 
 ```
 handle_path /download* {
@@ -176,6 +175,10 @@ handle_path /download* {
     file_server browse
 }
 ```
+
+Serving the installers from the same host the client talks to means a teammate
+needs no second system and no separate credentials, and the security group
+already decides who can reach it.
 
 One thing to set before the first real release:
 

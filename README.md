@@ -46,6 +46,33 @@ client build script, and a release-manifest generator for auto-update.
 
 ---
 
+## Installing the client
+
+Fetch it from the server the app talks to:
+
+```bash
+curl -O https://<host>/download/Topgun-API-Tool.dmg
+shasum -a 256 Topgun-API-Tool.dmg    # compare against the published checksum
+```
+
+Open it, drag to Applications, sign in. There is nothing else to configure —
+the server URL is compiled into the build.
+
+**Download with `curl`, not a browser.** macOS attaches
+`com.apple.quarantine` to anything a browser, Slack, or AirDrop writes, and
+Gatekeeper then refuses to open an app that is not notarised. `curl`, `scp`,
+and MDM do not set it. Distributing through Jamf or Intune sidesteps the
+question; notarising through an Apple Developer account is the other way out.
+
+Whoever is downloading needs to reach the host, so their address has to be in
+the server's security group. Builds are per-architecture — an Apple Silicon
+`.dmg` will not run on an Intel Mac.
+
+`deploy/make-release.sh` assembles the installers and the manifest the
+auto-updater polls; [`deploy/README.md`](deploy/README.md) covers publishing.
+
+---
+
 ## Repository layout
 
 Upstream's packages, unchanged in structure:

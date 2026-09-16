@@ -1,0 +1,7 @@
+mutation CreateTeamInviteLink($teamID: ID!, $role: TeamAccessRole!) {
+  createTeamInviteLink(teamID: $teamID, role: $role) {
+    id
+    teamID
+    role
+  }
+}

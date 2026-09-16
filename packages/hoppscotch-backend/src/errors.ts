@@ -367,6 +367,34 @@ export const TEAM_INVITE_NO_INVITE_FOUND =
 
 export const TEAM_INVITE_ALREADY_MEMBER = 'team_invite/already_member' as const;
 
+/**
+ * Invite link does not exist
+ * (TeamInviteLink)
+ */
+export const TEAM_INVITE_LINK_NOT_FOUND =
+  'team_invite_link/not_found' as const;
+
+/**
+ * Invite link has been revoked, has expired, or has no uses left
+ * (TeamInviteLink)
+ */
+export const TEAM_INVITE_LINK_INACTIVE =
+  'team_invite_link/inactive' as const;
+
+/**
+ * Invite links may not grant OWNER
+ * (TeamInviteLink)
+ */
+export const TEAM_INVITE_LINK_INVALID_ROLE =
+  'team_invite_link/invalid_role' as const;
+
+/**
+ * maxUses/expiry given as a non-positive value
+ * (TeamInviteLink)
+ */
+export const TEAM_INVITE_LINK_INVALID_LIMIT =
+  'team_invite_link/invalid_limit' as const;
+
 export const TEAM_INVITE_EMAIL_DO_NOT_MATCH =
   'team_invite/email_do_not_match' as const;
 

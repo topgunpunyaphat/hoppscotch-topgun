@@ -52,6 +52,7 @@ model Team {
   collections  TeamCollection[]
   environments TeamEnvironment[]
   invitations  TeamInvitation[]
+  inviteLinks  TeamInviteLink[]
   members      TeamMember[]
   requests     TeamRequest[]
 }
@@ -77,6 +78,29 @@ model TeamInvitation {
   team Team @relation(fields: [teamID], references: [id], onDelete: Cascade)
 
   @@unique([teamID, inviteeEmail])
+  @@index([teamID])
+}
+
+// A shareable join link, as opposed to TeamInvitation which is bound to one
+// address. Anyone who can authenticate and opens the link joins with `role`.
+// Who can authenticate at all is gated upstream by the sign-in provider (and
+// GOOGLE_ALLOWED_DOMAINS), so a leaked link cannot admit an outsider.
+//
+// `role` is deliberately never OWNER: a link is passed around in chat, and
+// ownership should not be transferable by forwarding a URL.
+model TeamInviteLink {
+  id         String         @id @default(cuid())
+  teamID     String
+  creatorUid String
+  role       TeamAccessRole
+  expiresOn  DateTime?      @db.Timestamptz(3)
+  maxUses    Int?
+  useCount   Int            @default(0)
+  revokedAt  DateTime?      @db.Timestamptz(3)
+  createdOn  DateTime       @default(now()) @db.Timestamptz(3)
+
+  team Team @relation(fields: [teamID], references: [id], onDelete: Cascade)
+
   @@index([teamID])
 }
 

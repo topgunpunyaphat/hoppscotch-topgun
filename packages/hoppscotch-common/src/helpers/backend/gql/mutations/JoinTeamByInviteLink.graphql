@@ -1,0 +1,6 @@
+mutation JoinTeamByInviteLink($linkID: ID!) {
+  joinTeamByInviteLink(linkID: $linkID) {
+    membershipID
+    role
+  }
+}
